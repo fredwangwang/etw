@@ -15,8 +15,10 @@ package etw
 	#cgo LDFLAGS: -ltdh
 
 	#include "session.h"
+	#include "stdint.h"
 */
 import "C"
+
 import (
 	"fmt"
 	"math/rand"
@@ -350,7 +352,10 @@ func (s *Session) processEvents(callbackContextKey uintptr) error {
 		(C.LPWSTR)(unsafe.Pointer(&s.etwSessionName[0])),
 		(C.PVOID)(callbackContextKey),
 	)
-	if C.INVALID_PROCESSTRACE_HANDLE == traceHandle {
+	// Based on the API docs:
+	// (INVALID_PROCESSTRACE_HANDLE is equivalent to (UINT64)UINTPTR_MAX.)
+	// Ref: https://learn.microsoft.com/en-us/windows/win32/api/evntrace/nf-evntrace-opentracea
+	if uint64(C.UINTPTR_MAX) == uint64(traceHandle) {
 		return fmt.Errorf("OpenTraceW failed; %w", windows.GetLastError())
 	}
 
