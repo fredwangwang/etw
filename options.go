@@ -1,4 +1,5 @@
-//+build windows
+//go:build windows
+// +build windows
 
 package etw
 
@@ -55,6 +56,25 @@ type SessionOptions struct {
 	// original API reference:
 	// https://docs.microsoft.com/en-us/windows/win32/api/evntrace/ns-evntrace-enable_trace_parameters
 	EnableProperties []EnableProperty
+
+	// Below are some properties that can be set on EVENT_TRACE_PROPERTIES
+	// https://learn.microsoft.com/en-us/windows/win32/api/evntrace/ns-evntrace-event_trace_properties
+
+	// BufferSize is Kilobytes of memory allocated for each event tracing session buffer.
+	BufferSize uint32
+
+	// MinimumBuffers is Minimum number of buffers reserved for the tracing session's buffer pool.
+	MinimumBuffers uint32
+
+	// MaximumBuffers is Maximum number of buffers reserved for the tracing session's buffer pool.
+	MaximumBuffers uint32
+
+	// AdditionalLogFileMode is A bitmask that specifies the tracing session's log file mode.
+	// At the moment, the session always starts up with EVENT_TRACE_REAL_TIME_MODE, you can use this to OR
+	// with other flags, such as EVENT_TRACE_NO_PER_PROCESSOR_BUFFERING to further configure the behavior.
+	// NOTE: some flags are incompatible with EVENT_TRACE_REAL_TIME_MODE, see
+	// https://learn.microsoft.com/en-us/windows/win32/etw/logging-mode-constants for applicable flags.
+	AdditionalLogFileMode uint32
 }
 
 // Option is any function that modifies SessionOptions. Options will be called
@@ -89,7 +109,8 @@ func WithLevel(lvl TraceLevel) Option {
 //
 // For more info take a look a SessionOptions docs. To query keywords defined
 // by specific provider identified by <GUID> try:
-//     logman query providers <GUID>
+//
+//	logman query providers <GUID>
 func WithMatchKeywords(anyKeyword, allKeyword uint64) Option {
 	return func(cfg *SessionOptions) {
 		cfg.MatchAnyKeyword = anyKeyword
@@ -106,6 +127,34 @@ func WithMatchKeywords(anyKeyword, allKeyword uint64) Option {
 func WithProperty(p EnableProperty) Option {
 	return func(cfg *SessionOptions) {
 		cfg.EnableProperties = append(cfg.EnableProperties, p)
+	}
+}
+
+// WithBufferSize sets the size of the buffer (in KB) to use for the session.
+func WithBufferSize(size uint32) Option {
+	return func(cfg *SessionOptions) {
+		cfg.BufferSize = size
+	}
+}
+
+// WithMinimumBuffers sets the minimum number of buffers to use for the session.
+func WithMinimumBuffers(min uint32) Option {
+	return func(cfg *SessionOptions) {
+		cfg.MinimumBuffers = min
+	}
+}
+
+// WithMaximumBuffers sets the maximum number of buffers to use for the session.
+func WithMaximumBuffers(max uint32) Option {
+	return func(cfg *SessionOptions) {
+		cfg.MaximumBuffers = max
+	}
+}
+
+// WithAdditionalLogFileMode sets the log file mode for the session.
+func WithAdditionalLogFileMode(mode uint32) Option {
+	return func(cfg *SessionOptions) {
+		cfg.AdditionalLogFileMode = mode
 	}
 }
 

@@ -1,7 +1,10 @@
 # etw
-[![GoDev](https://img.shields.io/static/v1?label=godev&message=reference&color=00add8&style=flat-square)](https://pkg.go.dev/github.com/bi-zone/etw)
-[![Go Report Card](https://goreportcard.com/badge/github.com/bi-zone/etw)](https://goreportcard.com/report/github.com/bi-zone/etw)
-[![Lint & Test Go code](https://img.shields.io/github/workflow/status/bi-zone/etw/Lint%20&%20Test%20Go%20code?style=flat-square)](https://github.com/bi-zone/etw/actions)
+[![GoDev](https://img.shields.io/static/v1?label=godev&message=reference&color=00add8&style=flat-square)](https://pkg.go.dev/github.com/fredwangwang/etw)
+[![Go Report Card](https://goreportcard.com/badge/github.com/fredwangwang/etw)](https://goreportcard.com/report/github.com/fredwangwang/etw)
+
+## NOTE
+
+this is a forked project from https://github.com/bi-zone/etw, wtih added functionalities to flush trace and allows more control over the buffer setup.
 
 
 `etw` is a Go-package that allows you to receive [Event Tracing for Windows (ETW)](https://docs.microsoft.com/en-us/windows/win32/etw/about-event-tracing)
@@ -17,7 +20,7 @@ To use `etw` you need to have [mingw-w64](http://mingw-w64.org/) installed and p
 Go compiler (take a look at [build/vars.sh](./build/vars.sh) and [examples/tracer/Makefile](./examples/tracer/Makefile)).
 
 ## Docs
-Package reference is available at https://pkg.go.dev/github.com/bi-zone/etw
+Package reference is available at https://pkg.go.dev/github.com/fredwangwang/etw
 
 Examples are located in [examples](./examples) folder.
 
@@ -32,7 +35,7 @@ import (
 	"os/signal"
 	"sync"
 
-	"github.com/bi-zone/etw"
+	"github.com/fredwangwang/etw"
 	"golang.org/x/sys/windows"
 )
 

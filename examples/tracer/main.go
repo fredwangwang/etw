@@ -1,20 +1,21 @@
-//+build windows
+//go:build windows
 
 package main
 
 import (
 	"encoding/json"
 	"flag"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"golang.org/x/sys/windows"
 
-	"github.com/bi-zone/etw"
+	"github.com/fredwangwang/etw"
 )
 
 func main() {
@@ -29,14 +30,18 @@ func main() {
 		log.Fatalf("Usage: %s [opts] <providerGUID>", filepath.Base(os.Args[0]))
 	}
 	if *optSilent {
-		log.SetOutput(ioutil.Discard)
+		log.SetOutput(io.Discard)
 	}
 
 	guid, err := windows.GUIDFromString(flag.Arg(0))
 	if err != nil {
 		log.Fatalf("Incorrect GUID given; %s", err)
 	}
-	session, err := etw.NewSession(guid)
+	session, err := etw.NewSession(guid,
+		etw.WithName("go-test-etw-session"),
+		etw.WithBufferSize(4),
+		etw.WithMinimumBuffers(2),
+		etw.WithAdditionalLogFileMode(etw.EVENT_TRACE_NO_PER_PROCESSOR_BUFFERING))
 	if err != nil {
 		log.Fatalf("Failed to create etw session; %s", err)
 	}
@@ -44,7 +49,6 @@ func main() {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	cb := func(e *etw.Event) {
-		log.Printf("[DBG] Event %d from %s\n", e.Header.ID, e.Header.TimeStamp)
 		if *optID > 0 && *optID != int(e.Header.ID) {
 			return
 		}
@@ -60,6 +64,17 @@ func main() {
 		}
 		_ = enc.Encode(event)
 	}
+
+	go func() {
+		for {
+			// keep flushing events every 10ms, hopefully to get event faster than every second.
+			time.Sleep(10 * time.Millisecond)
+			err := session.FlushEvents()
+			if err != nil {
+				log.Printf("[ERR] Failed to flush events: %s", err)
+			}
+		}
+	}()
 
 	var wg sync.WaitGroup
 	wg.Add(1)

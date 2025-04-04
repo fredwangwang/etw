@@ -1,4 +1,5 @@
-//+build windows
+//go:build windows
+// +build windows
 
 // Package etw allows you to receive Event Tracing for Windows (ETW) events.
 //
@@ -7,7 +8,7 @@
 // anything you can see in Event Viewer window.
 //
 // For possible usage examples take a look at
-// https://github.com/bi-zone/etw/tree/master/examples
+// https://github.com/fredwangwang/etw/tree/master/examples
 package etw
 
 /*
@@ -27,16 +28,24 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+const (
+	EVENT_TRACE_FILE_MODE_CIRCULAR         = 0x00000002
+	EVENT_TRACE_REAL_TIME_MODE             = 0x00000100
+	EVENT_TRACE_BUFFERING_MODE             = 0x00000400
+	EVENT_TRACE_STOP_ON_HYBRID_SHUTDOWN    = 0x00400000
+	EVENT_TRACE_PERSIST_ON_HYBRID_SHUTDOWN = 0x00800000
+	EVENT_TRACE_NO_PER_PROCESSOR_BUFFERING = 0x10000000
+)
+
 // ExistsError is returned by NewSession if the session name is already taken.
 //
 // Having ExistsError you have an option to force kill the session:
 //
-//		var exists etw.ExistsError
-//		s, err = etw.NewSession(s.guid, etw.WithName(sessionName))
-//		if errors.As(err, &exists) {
-//			err = etw.KillSession(exists.SessionName)
-//		}
-//
+//	var exists etw.ExistsError
+//	s, err = etw.NewSession(s.guid, etw.WithName(sessionName))
+//	if errors.As(err, &exists) {
+//		err = etw.KillSession(exists.SessionName)
+//	}
 type ExistsError struct{ SessionName string }
 
 func (e ExistsError) Error() string {
@@ -142,6 +151,19 @@ func (s *Session) UpdateOptions(options ...Option) error {
 	return nil
 }
 
+func (s *Session) FlushEvents() error {
+	ret := C.ControlTraceW(
+		s.hSession,
+		C.LPWSTR(unsafe.Pointer(&s.etwSessionName[0])),
+		C.PEVENT_TRACE_PROPERTIES(unsafe.Pointer(&s.propertiesBuf[0])),
+		C.EVENT_TRACE_CONTROL_FLUSH)
+
+	if status := windows.Errno(ret); status != windows.ERROR_SUCCESS {
+		return fmt.Errorf("EVENT_TRACE_CONTROL_FLUSH failed; %w", status)
+	}
+	return nil
+}
+
 // Close stops trace session and frees associated resources.
 func (s *Session) Close() error {
 	// "Be sure to disable all providers before stopping the session."
@@ -225,11 +247,17 @@ func (s *Session) createETWSession() error {
 	// Ref: https://docs.microsoft.com/en-us/windows/win32/api/evntrace/ns-evntrace-event_trace_properties
 	pProperties := (C.PEVENT_TRACE_PROPERTIES)(unsafe.Pointer(&propertiesBuf[0]))
 	pProperties.Wnode.BufferSize = C.ulong(bufSize)
-	pProperties.Wnode.ClientContext = 1 // QPC for event Timestamp
 	pProperties.Wnode.Flags = C.WNODE_FLAG_TRACED_GUID
+	pProperties.Wnode.ClientContext = 1 // QPC for event Timestamp
 
 	// Mark that we are going to process events in real time using a callback.
-	pProperties.LogFileMode = C.EVENT_TRACE_REAL_TIME_MODE
+	pProperties.LogFileMode = EVENT_TRACE_REAL_TIME_MODE | C.ulong(s.config.AdditionalLogFileMode)
+	pProperties.BufferSize = C.ulong(s.config.BufferSize)
+	pProperties.MinimumBuffers = C.ulong(s.config.MinimumBuffers)
+	pProperties.MaximumBuffers = C.ulong(s.config.MaximumBuffers)
+	pProperties.LoggerNameOffset = C.ulong(unsafe.Sizeof(C.EVENT_TRACE_PROPERTIES{}))
+
+	copy(propertiesBuf[pProperties.LoggerNameOffset:], unsafe.Slice((*byte)(unsafe.Pointer(&s.etwSessionName[0])), len(s.etwSessionName)*2))
 
 	ret := C.StartTraceW(
 		&s.hSession,
